@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
+import User from "./user.model.js";
 
 const runSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: User },
   distance: Number,
   duration: Number,
   steps: Number,
