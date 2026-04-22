@@ -13,8 +13,8 @@ function RunTracker() {
     const getDistance = (lat1, lon1, lat2, lon2) =>{
         const R = 6371; // km
 
-        const dLat = (lat1 - lat2) * (Math.PI / 180);
-        const dLon = (lon1 - lon2) * (Math.PI / 180);
+        const dLat = (lat2 - lat1) * (Math.PI / 180);
+        const dLon = (lon2 - lon1) * (Math.PI / 180);
 
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
                   Math.cos(lat1 * (Math.PI/180))*
@@ -25,32 +25,43 @@ function RunTracker() {
         return R*c;
     };
 
-    useEffect(()=>{
-        if (!isRunning) return;
+    useEffect(() => {
+      if (!isRunning) return;
 
-        const interval = setInterval(()=>{
-            navigator.geolocation.getCurrentPosition((position)=>{
-                const {latitude, longitude, accuracy} = position.coords;
-                if(accuracy>50) return;
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
 
-                if(prevLocation){
-                    const dist = getDistance(
-                        prevLocation.lat,
-                        prevLocation.lon,
-                        latitude, 
-                        longitude
-                    )*1000;
+          if (accuracy > 50) return;
 
-                    if(dist> 10 && dist<100){
-                        setDistance((prev)=> prev + dist)
-                    }
-                }
+          if (prevLocation) {
+            const dist = getDistance(
+              prevLocation.lat,
+              prevLocation.lon,
+              latitude,
+              longitude
+            );
 
-                setPrevLocation({lat: latitude, lon: longitude});                    
-            })
-        }, 5000);
-        return () =>  clearInterval(interval);
-    }, [isRunning, prevLocation]);
+            if (dist > 0.01 && dist <0.1) {
+              setDistance((prev) => prev + dist);
+            }
+          }
+
+          setPrevLocation({ lat: latitude, lon: longitude });
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000,
+        }
+      );
+
+      // 🧹 Cleanup (VERY IMPORTANT)
+      return () => navigator.geolocation.clearWatch(watchId);
+    }, [isRunning]);
 
     useEffect(() => {
         if (!isRunning) return;
