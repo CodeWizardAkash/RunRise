@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function RunTracker() {
     const [distance, setDistance] = useState(0);
     const [prevLocation, setPrevLocation] = useState(null);
     const [isRunning, setIsRunning] = useState(false);
+    const [time, setTime] = useState(0);
+
+    const navigate = useNavigate();
 
     // Haversin formula
     const getDistance = (lat1, lon1, lat2, lon2) =>{
@@ -26,7 +30,8 @@ function RunTracker() {
 
         const interval = setInterval(()=>{
             navigator.geolocation.getCurrentPosition((position)=>{
-                const {latitude, longitude} = position.coords;
+                const {latitude, longitude, accuracy} = position.coords;
+                if(accuracy>50) return;
 
                 if(prevLocation){
                     const dist = getDistance(
@@ -34,9 +39,9 @@ function RunTracker() {
                         prevLocation.lon,
                         latitude, 
                         longitude
-                    );
+                    )*1000;
 
-                    if(dist> 0.01){
+                    if(dist> 10 && dist<100){
                         setDistance((prev)=> prev + dist)
                     }
                 }
@@ -47,9 +52,21 @@ function RunTracker() {
         return () =>  clearInterval(interval);
     }, [isRunning, prevLocation]);
 
+    useEffect(() => {
+        if (!isRunning) return;
+
+        const timer = setInterval(() => {
+            setTime((prev) => prev + 1);
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [isRunning]);
+
+
     const startRun = () => {
         setDistance(0);
         setPrevLocation(null);
+        setTime(0);
         setIsRunning(true);
     };
 
@@ -57,12 +74,30 @@ function RunTracker() {
         setIsRunning(false);
     };
 
+      // 🧠 Format Time (hh:mm:ss)
+    const formatTime = (seconds) => {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+
+        return `${hrs.toString().padStart(2, "0")}:${mins
+        .toString()
+        .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    };
+
     return( 
        <div className="p-5 text-center">
+
+        <div className="text-left cursor-pointer" onClick={()=> navigate("/dashboard")} >{"<<back"}</div>
+
       <h1 className="text-2xl font-bold">Run Tracker</h1>
 
       <p className="text-xl mt-4">
-        Distance: {distance.toFixed(2)} km
+        Distance: {distance.toFixed(3)} km
+      </p>
+
+      <p className="text-xl mt-2">
+        Time: {formatTime(time)}
       </p>
 
       <div className="mt-5 space-x-4">

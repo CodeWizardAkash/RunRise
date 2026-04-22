@@ -64,7 +64,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-3xl font-bold text-gray-800">RunRise 🏃</h1>
           <p className="text-gray-600">
-            Welcome, <span className="font-semibold">{user?.name}</span> 👋
+            Welcome, <span className="font-semibold text-xl">{user?.name}</span> 👋
           </p>
         </div>
 
@@ -75,6 +75,14 @@ export default function Dashboard() {
           Logout
         </button>
       </div>
+
+      <div className="p-3">
+        <button
+          className="text-2xl bg-emerald-500 w-35 h-12 rounded-md font-semibold"
+          onClick={()=>navigate("/run")}
+        >RUN</button>
+      </div>
+      
 
       {/* Add Run Card */}
       <div className="bg-white shadow-md rounded-lg p-5 mb-6">
