@@ -1,105 +1,112 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 function RunTracker() {
-    const [distance, setDistance] = useState(0);
-    const [prevLocation, setPrevLocation] = useState(null);
-    const [isRunning, setIsRunning] = useState(false);
-    const [time, setTime] = useState(0);
+  const [distance, setDistance] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  const [time, setTime] = useState(0);
+  const [path, setPath] = useState([]);
 
-    const navigate = useNavigate();
+  const prevLocationRef = useRef(null);
 
-    // Haversin formula
-    const getDistance = (lat1, lon1, lat2, lon2) =>{
-        const R = 6371; // km
+  const navigate = useNavigate();
 
-        const dLat = (lat2 - lat1) * (Math.PI / 180);
-        const dLon = (lon2 - lon1) * (Math.PI / 180);
+  // Haversine
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
 
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * (Math.PI/180))*
-                  Math.cos(lat2 * (Math.PI/180))*
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        
-        const c = 2* Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R*c;
-    };
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) ** 2;
 
-    useEffect(() => {
-      if (!isRunning) return;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
 
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
+  // 📍 REAL-TIME TRACKING
+  useEffect(() => {
+    if (!isRunning) return;
 
-          if (accuracy > 50) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
 
-          if (prevLocation) {
-            const dist = getDistance(
-              prevLocation.lat,
-              prevLocation.lon,
-              latitude,
-              longitude
-            );
+        if (accuracy > 50) return;
 
-            if (dist > 0.01 && dist <0.1) {
-              setDistance((prev) => prev + dist);
-            }
+        const prev = prevLocationRef.current;
+
+        if (prev) {
+          const dist = getDistance(
+            prev.lat,
+            prev.lon,
+            latitude,
+            longitude
+          );
+
+          if (dist > 0.001 && dist < 0.1) {
+            setDistance((d) => d + dist);
           }
-
-          setPrevLocation({ lat: latitude, lon: longitude });
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-        },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: 5000,
         }
-      );
 
-      // 🧹 Cleanup (VERY IMPORTANT)
-      return () => navigator.geolocation.clearWatch(watchId);
-    }, [isRunning]);
+        // Save current location
+        prevLocationRef.current = { lat: latitude, lon: longitude };
 
-    useEffect(() => {
-        if (!isRunning) return;
+        // Save path
+        setPath((p) => [...p, { lat: latitude, lon: longitude }]);
+      },
+      (error) => console.error(error),
+      { enableHighAccuracy: true }
+    );
 
-        const timer = setInterval(() => {
-            setTime((prev) => prev + 1);
-        }, 1000);
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [isRunning]);
 
-        return () => clearInterval(timer);
-    }, [isRunning]);
+  // ⏱ TIMER
+  useEffect(() => {
+    if (!isRunning) return;
 
+    const timer = setInterval(() => {
+      setTime((t) => t + 1);
+    }, 1000);
 
-    const startRun = () => {
-        setDistance(0);
-        setPrevLocation(null);
-        setTime(0);
-        setIsRunning(true);
-    };
+    return () => clearInterval(timer);
+  }, [isRunning]);
 
-    const stopRun = () => {
-        setIsRunning(false);
-    };
+  // ▶️ START
+  const startRun = () => {
+    setDistance(0);
+    setTime(0);
+    setPath([]);
+    prevLocationRef.current = null;
+    setIsRunning(true);
+  };
 
-      // 🧠 Format Time (hh:mm:ss)
-    const formatTime = (seconds) => {
-        const hrs = Math.floor(seconds / 3600);
-        const mins = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
+  // ⏹ STOP
+  const stopRun = () => {
+    setIsRunning(false);
+    console.log("Run Path:", path); // for debugging
+  };
 
-        return `${hrs.toString().padStart(2, "0")}:${mins
-        .toString()
-        .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-    };
+  // Format Time
+  const formatTime = (seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
 
-    return( 
-       <div className="p-5 text-center">
+    return `${hrs.toString().padStart(2, "0")}:${mins
+      .toString()
+      .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
-        <div className="text-left cursor-pointer" onClick={()=> navigate("/dashboard")} >{"<<back"}</div>
+  return (
+    <div className="p-5 text-center">
+      <div onClick={() => navigate("/dashboard")} className="cursor-pointer text-left">
+        {"<< back"}
+      </div>
 
       <h1 className="text-2xl font-bold">Run Tracker</h1>
 
@@ -114,6 +121,7 @@ function RunTracker() {
       <div className="mt-5 space-x-4">
         <button
           onClick={startRun}
+          disabled={isRunning}
           className="bg-green-500 text-white px-4 py-2 rounded"
         >
           Start
@@ -121,6 +129,7 @@ function RunTracker() {
 
         <button
           onClick={stopRun}
+          disabled={!isRunning}
           className="bg-red-500 text-white px-4 py-2 rounded"
         >
           Stop
@@ -131,7 +140,7 @@ function RunTracker() {
         Status: {isRunning ? "Running 🟢" : "Stopped 🔴"}
       </p>
     </div>
-    )
+  );
 }
 
 export default RunTracker;
