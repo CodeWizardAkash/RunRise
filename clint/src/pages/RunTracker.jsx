@@ -1,179 +1,230 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-function RunTracker() {
-  const [distance, setDistance] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [time, setTime] = useState(0);
-  const [path, setPath] = useState([]);
+import RunMap from "../components/RunMap";
+import RunStats from "../components/RunStats";
+import RunControls from "../components/RunControls";
 
+import { getDistance } from "../utils/getDistance";
+
+function RunTracker() {
+  const navigate = useNavigate();
+  
+  // State
+  const [distance, setDistance] = useState(0);
+  const [time, setTime] = useState(0);
+  const [speed, setSpeed] = useState(0);
+  const [path, setPath] = useState([]);
+  const [isRunning, setIsRunning] = useState(false);
+  
+  // Refs
   const prevLocationRef = useRef(null);
   const totalDistanceRef = useRef(0);
-
-  const navigate = useNavigate();
-
-  // 🌍 Haversine Formula
-  const getDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Earth radius in km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(lat1 * (Math.PI / 180)) *
-        Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) ** 2;
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  // 📍 Real-time GPS Tracking
+  const gpsBufferRef = useRef([]);
+  
+  // Config
+  const MAX_ACCURACY = 50;
+  const MIN_DISTANCE = 0.002; // 2 meters
+  const MAX_DISTANCE = 0.2; // 200 meters
+  
+  // Pace
+  const pace =
+    distance > 0
+      ? (time / 60) / distance
+      : 0;
+  
+  // GPS Tracking
   useEffect(() => {
     if (!isRunning) return;
 
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported.");
+      return;
+    }
+
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-
-        console.log("📍 Location:", latitude, longitude, "Accuracy:", accuracy);
-
-        // Ignore bad GPS accuracy
-        if (accuracy > 100) return;
-
-        const prev = prevLocationRef.current;
-
-        // First location
-        if (!prev) {
-          prevLocationRef.current = { lat: latitude, lon: longitude };
-          setPath([{ lat: latitude, lon: longitude }]);
-          return;
-        }
-
-        // Calculate distance
-        const dist = getDistance(
-          prev.lat,
-          prev.lon,
+        const {
           latitude,
-          longitude
+          longitude,
+          accuracy,
+          speed: gpsSpeed,
+        } = position.coords;
+
+        console.log(
+          "📍",
+          latitude,
+          longitude,
+          "Accuracy:",
+          accuracy
         );
 
-        console.log("📏 Distance chunk:", dist);
+        // Ignore bad GPS signal
+        if (accuracy > MAX_ACCURACY) return;
+        
+        // GPS Smoothing
+        gpsBufferRef.current.push({
+          lat: latitude,
+          lon: longitude,
+        });
 
-        // Filter noise (5m to 100m)
-        if (dist > 0.005 && dist < 0.1) {
-          totalDistanceRef.current += dist;
+        if (gpsBufferRef.current.length > 5) {
+          gpsBufferRef.current.shift();
+        }
+
+        const avgLat =
+          gpsBufferRef.current.reduce(
+            (sum, point) => sum + point.lat,
+            0
+          ) / gpsBufferRef.current.length;
+
+        const avgLon =
+          gpsBufferRef.current.reduce(
+            (sum, point) => sum + point.lon,
+            0
+          ) / gpsBufferRef.current.length;
+        
+        // Speed
+        const speedKmh =
+          gpsSpeed !== null
+            ? gpsSpeed * 3.6
+            : 0;
+
+        setSpeed(speedKmh);
+
+        // Ignore impossible jumps
+        if (!prevLocationRef.current) {
+          prevLocationRef.current = {
+            lat: avgLat,
+            lon: avgLon,
+          };
+
+          setPath([[avgLat, avgLon]]);
+          return;
+        }
+        // Distance Calculation
+        const chunk = getDistance(
+          prevLocationRef.current.lat,
+          prevLocationRef.current.lon,
+          avgLat,
+          avgLon
+        );
+
+        console.log(
+          "📏 Distance Chunk:",
+          chunk
+        );
+
+        if (
+          chunk > MIN_DISTANCE &&
+          chunk < MAX_DISTANCE
+        ) {
+          totalDistanceRef.current += chunk;
           setDistance(totalDistanceRef.current);
         }
 
-        // Update previous location
-        prevLocationRef.current = { lat: latitude, lon: longitude };
-
-        // Save path (only good accuracy)
-        if (accuracy < 50) {
-          setPath((p) => [...p, { lat: latitude, lon: longitude }]);
-        }
+        // Update Previous Position
+        prevLocationRef.current = {
+          lat: avgLat,
+          lon: avgLon,
+        };
+        
+        // Update Route Path
+        setPath((prev) => [
+          ...prev,
+          [avgLat, avgLon],
+        ]);
       },
       (error) => {
-        console.error("GPS Error:", error);
-        alert("Please enable location permission and use HTTPS");
+        console.error(error);
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 1000,
+        timeout: 15000,
+        maximumAge: 0,
       }
     );
 
-    return () => navigator.geolocation.clearWatch(watchId);
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
   }, [isRunning]);
-
-  // ⏱ Timer
+ 
+  // Timer 
   useEffect(() => {
     if (!isRunning) return;
 
     const timer = setInterval(() => {
-      setTime((t) => t + 1);
+      setTime((prev) => prev + 1);
     }, 1000);
 
     return () => clearInterval(timer);
   }, [isRunning]);
 
-  // ▶️ Start Run
-  const startRun = () => {
+  // Start Run
+    const startRun = () => {
     totalDistanceRef.current = 0;
+    gpsBufferRef.current = [];
+    prevLocationRef.current = null;
+
     setDistance(0);
+    setSpeed(0);
     setTime(0);
     setPath([]);
-    prevLocationRef.current = null;
+
     setIsRunning(true);
   };
 
-  // ⏹ Stop Run
+  // Stop Run
   const stopRun = () => {
     setIsRunning(false);
-    console.log("🏁 Final Distance:", totalDistanceRef.current.toFixed(3));
-    console.log("🗺 Path Points:", path.length);
+
+    console.log(
+      "🏁 Final Distance:",
+      totalDistanceRef.current.toFixed(3)
+    );
+
+    console.log(
+      "🗺 Route Points:",
+      path.length
+    );
   };
 
-  // 🧠 Format Time
-  const formatTime = (seconds) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    return `${hrs.toString().padStart(2, "0")}:${mins
-      .toString()
-      .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
+  // UI
   return (
     <div className="p-5 text-center">
-      {/* Back Button */}
       <div
-        onClick={() => navigate("/dashboard")}
         className="cursor-pointer text-left"
+        onClick={() => navigate("/dashboard")}
       >
         {"<< back"}
       </div>
 
-      <h1 className="text-2xl font-bold">Run Tracker</h1>
+      <h1 className="text-3xl font-bold">
+        Run Tracker
+      </h1>
 
-      {/* Distance */}
-      <p className="text-xl mt-4">
-        Distance: {distance < 1 
-          ? `${(distance * 1000).toFixed(0)} m` 
-          : `${distance.toFixed(3)} km`}
-      </p>
+      <RunStats
+        distance={distance}
+        time={time}
+        speed={speed}
+        pace={pace}
+        isRunning={isRunning}
+      />
 
-      {/* Time */}
-      <p className="text-xl mt-2">
-        Time: {formatTime(time)}
-      </p>
+      <RunControls
+        isRunning={isRunning}
+        startRun={startRun}
+        stopRun={stopRun}
+      />
 
-      {/* Buttons */}
-      <div className="mt-5 space-x-4">
-        <button
-          onClick={startRun}
-          disabled={isRunning}
-          className="bg-green-500 text-white px-4 py-2 rounded"
-        >
-          Start
-        </button>
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold mb-2">
+          Route Map
+        </h2>
 
-        <button
-          onClick={stopRun}
-          disabled={!isRunning}
-          className="bg-red-500 text-white px-4 py-2 rounded"
-        >
-          Stop
-        </button>
+        <RunMap path={path} />
       </div>
-
-      {/* Status */}
-      <p className="mt-3">
-        Status: {isRunning ? "Running 🟢" : "Stopped 🔴"}
-      </p>
     </div>
   );
 }
