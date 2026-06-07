@@ -24,7 +24,7 @@ function RunTracker() {
   
   // Config
   const MAX_ACCURACY = 50;
-  const MIN_DISTANCE = 0.002; // 2 meters
+  const MIN_DISTANCE = 0.003; // 3 meters
   const MAX_DISTANCE = 0.2; // 200 meters
   
   // Pace
@@ -63,30 +63,12 @@ function RunTracker() {
         if (accuracy > MAX_ACCURACY) return;
         
         // GPS Smoothing
-        gpsBufferRef.current.push({
-          lat: latitude,
-          lon: longitude,
-        });
-
-        if (gpsBufferRef.current.length > 5) {
-          gpsBufferRef.current.shift();
-        }
-
-        const avgLat =
-          gpsBufferRef.current.reduce(
-            (sum, point) => sum + point.lat,
-            0
-          ) / gpsBufferRef.current.length;
-
-        const avgLon =
-          gpsBufferRef.current.reduce(
-            (sum, point) => sum + point.lon,
-            0
-          ) / gpsBufferRef.current.length;
+        const avgLat = latitude;
+        const avgLon = longitude;
         
         // Speed
         const speedKmh =
-          gpsSpeed !== null
+          typeof gpsSpeed === "number"
             ? gpsSpeed * 3.6
             : 0;
 
@@ -110,16 +92,25 @@ function RunTracker() {
           avgLon
         );
 
-        console.log(
-          "📏 Distance Chunk:",
-          chunk
-        );
+        console.log({
+          accuracy,
+          chunk,
+          total: totalDistanceRef.current,
+          speed: speedKmh,
+        });
 
         if (
           chunk > MIN_DISTANCE &&
           chunk < MAX_DISTANCE
         ) {
           totalDistanceRef.current += chunk;
+
+          console.log(
+            "✅ ACCEPTED",
+            chunk,
+            totalDistanceRef.current
+          );
+
           setDistance(totalDistanceRef.current);
         }
 
