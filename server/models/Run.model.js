@@ -1,12 +1,37 @@
 import mongoose from "mongoose";
-import User from "./user.model.js";
 
 const runSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: User },
-  distance: Number,
-  duration: Number,
-  steps: Number,
+    user:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"User",
+        required:true
+    },
+
+    distance:{
+        type:Number,
+        required:true
+    },
+
+    duration:{
+        type:Number,
+        required:true
+    },
+
+    speed:{
+        type:Number,
+        default:0
+    },
+    pace:{
+      type:Number,
+      default: 0
+    },
+    route:[
+      {
+        lat:Number,
+        lon: Number,
+      }
+    ]
+
 }, { timestamps: true });
 
-const Run = mongoose.model("Run", runSchema);
-export default Run;
+export default mongoose.model("Run", runSchema);

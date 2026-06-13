@@ -43,7 +43,7 @@ export default function Dashboard() {
     e.preventDefault();
     try {
       await API.post("/run", form);
-      setForm({ distance: "", duration: "", steps: "" });
+      setForm({ distance: "", duration: "", speed: "", pace: "" });
       fetchRuns();
     } catch {
       alert("Error adding run");
@@ -140,7 +140,8 @@ export default function Dashboard() {
               >
                 <p><strong>Distance:</strong> {run.distance} km</p>
                 <p><strong>Duration:</strong> {run.duration} min</p>
-                <p><strong>Steps:</strong> {run.steps}</p>
+                <p><strong>Speed:</strong> {run.speed}</p>
+                <p><strong>Pace:</strong>{run.pace}</p>
                 <p className="text-sm text-gray-500 mt-2">
                   {new Date(run.createdAt).toLocaleString()}
                 </p>
