@@ -1,4 +1,5 @@
-import Run from "../models/Run.model.js"
+import Run from "../models/Run.model.js";
+import Post from "../models/post.model.js";
 
 // Save Run
 export const saveRun = async (req, res)=>{
@@ -15,6 +16,12 @@ export const saveRun = async (req, res)=>{
             success:true,
             run: newRun
         });
+
+        await Post.create({
+            user: req.user.id,
+            run: newRun._id,
+            caption:`Completed ${newRun.distance} KM today 🔥`
+        })
     }catch(error){
         res.status(500).json({
             success: false,

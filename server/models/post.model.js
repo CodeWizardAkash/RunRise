@@ -3,13 +3,15 @@ import mongoose from "mongoose"
 const postSchema = new mongoose.Schema({
     user:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
+        ref: "User",
+        required: true
     },
     run:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Run"
+        ref: "Run",
+        required: true
     },
-    text:{
+    caption:{
         type: String,
         default:""
     },

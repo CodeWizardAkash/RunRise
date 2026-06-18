@@ -76,11 +76,17 @@ export default function Dashboard() {
         </button>
       </div>
 
-      <div className="p-3">
+      <div className="p-3 flex gap-9">
         <button
-          className="text-2xl bg-emerald-500 w-35 h-12 rounded-md font-semibold"
+          className="text-2xl bg-emerald-500 w-40 h-12 rounded-md font-semibold"
           onClick={()=>navigate("/run")}
-        >RUN</button>
+        >RUN
+        </button>
+
+        <button
+          className="text-2xl bg-amber-400 w-40 h-12 rounded-md font-semibold"
+          onClick={()=>navigate("/feed")}
+        >FEED📲</button>
       </div>
       
 
