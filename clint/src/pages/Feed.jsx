@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import PostCard from "../components/PostCard";
+import PostCard from "../components/postCard";
 import API from "../services/api";
 
 
