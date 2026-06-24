@@ -29,8 +29,6 @@ function CommentSection({postId}){
             await API.post(`/posts/${postId}/comment`, {
                 text,
             });
-            text="";
-            await fetchComments()
         }
         catch(error){
             console.log(error);
