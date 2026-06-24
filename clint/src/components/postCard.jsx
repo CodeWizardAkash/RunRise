@@ -27,7 +27,6 @@ function PostCard({ post, handleLike }) {
       <hr className="border-t-2 border-gray-700 my-4 mt-5" />
       <button
         onClick={() => handleLike(post._id)}
-        // className="mt-3"
       >
         ❤️ {post.likes.length}
       </button>
